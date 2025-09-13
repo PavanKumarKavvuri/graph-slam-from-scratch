@@ -30,7 +30,7 @@ find_package(Eigen3 REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 
-include_directories(include)
+include_directories(include ${EIGEN3_INCLUDE_DIR})
 
 add_executable(graph_slam src/main.cpp src/graph_slam.cpp)
 # ament_target_dependencies(graph_node rclcpp std_msgs)

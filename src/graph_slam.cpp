@@ -25,11 +25,68 @@ namespace graph_slam_ns{
     }
 
     void GraphSLAM::gtPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg){
-        RCLCPP_INFO_STREAM(this->get_logger(), "Ground Truth Pose Received: [" << msg->pose.position.x << ", " << msg->pose.position.y << "]");
+        // RCLCPP_INFO_STREAM(this->get_logger(), "Ground Truth Pose Received: [" << msg->pose.position.x << ", " << msg->pose.position.y << "]");
+        // frameCount += 1;
     }
 
     void GraphSLAM::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg){
-        RCLCPP_INFO_STREAM(this->get_logger(), "Ground Truth Odometry Received: [" << msg->pose.pose.position.x << ", " << msg->pose.pose.position.y << "]");
+        
+        geometry_msgs::msg::Point current_point = msg->pose.pose.position;
+        geometry_msgs::msg::Quaternion current_quat = msg->pose.pose.orientation;
+
+        if(is_firstFrame){
+            RCLCPP_INFO(this->get_logger(), "First Frame Received");
+            is_firstFrame = false;
+            // nodeCounter += 1;
+
+            auto theta = extractTheta(current_quat);
+
+            Pose2D pose_2d{ .x = current_point.x,
+                            .y = current_point.y,
+                            .theta = theta,
+                            .node_id = nodeCounter
+                            };
+            PoseArray.push_back(pose_2d);
+        }
+        else{
+            auto dist = computeDistance(current_point, last_point_);
+            distance_travelled += dist;
+            
+            if(distance_travelled > 10){
+                RCLCPP_INFO(this->get_logger(), "Distance greater than 15mts. Dropping node now");
+                
+                nodeCounter += 1;
+                auto theta = extractTheta(current_quat);
+
+                Pose2D pose_2d{ .x = current_point.x,
+                                .y = current_point.y,
+                                .theta = theta,
+                                .node_id = nodeCounter
+                                };
+                PoseArray.push_back(pose_2d);
+
+                std::cout<< "Node id: " << nodeCounter << " " << pose_2d << std::endl;
+
+                last_point_ = current_point;
+                distance_travelled = 0.0;
+
+                std::cout<< "Vector size: "<< PoseArray.size() << std::endl;
+            }
+        }
+    }
+
+    double GraphSLAM::computeDistance(const geometry_msgs::msg::Point& p1, const geometry_msgs::msg::Point& p2){
+        return std::sqrt(
+            std::pow(p2.x - p1.x, 2) +
+            std::pow(p2.y - p1.y, 2)
+        );
+    }
+
+    double GraphSLAM::extractTheta(const geometry_msgs::msg::Quaternion& q){
+        Eigen::Quaterniond quaternion(q.w, q.x, q.y, q.z);
+        Eigen::Vector3d euler_ang = quaternion.toRotationMatrix().eulerAngles(2, 1, 0); // Z, Y, X
+
+        return euler_ang(0);
     }
 
 
