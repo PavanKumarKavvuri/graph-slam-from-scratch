@@ -21,8 +21,7 @@ find_package(std_msgs REQUIRED)
 find_package(visualization_msgs)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
-find_package(opteran_spatial_msgs REQUIRED)
-find_package(opteran_vision_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
@@ -39,6 +38,7 @@ target_link_libraries(graph_slam
   PRIVATE rclcpp::rclcpp
   PUBLIC ${nav_msgs_TARGETS}
   PUBLIC ${geometry_msgs_TARGETS}
+  PUBLIC ${visualization_msgs_TARGETS}
   PUBLIC ${std_msgs_TARGETS})
 
 install(TARGETS

@@ -22,6 +22,9 @@ namespace graph_slam_ns{
             "/odom", qos_settings_,
             std::bind(&GraphSLAM::odomCallback, this, std::placeholders::_1));
 
+        m_node_marker_pub = this->create_publisher<visualization_msgs::msg::Marker>(
+            "visualization_marker", qos_settings_);
+
     }
 
     void GraphSLAM::gtPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg){
@@ -47,6 +50,9 @@ namespace graph_slam_ns{
                             .node_id = nodeCounter
                             };
             PoseArray.push_back(pose_2d);
+
+            // Now publish Pose2D
+            GraphSLAM::publishNodeMarker(pose_2d);
         }
         else{
             auto dist = computeDistance(current_point, last_point_);
@@ -64,6 +70,9 @@ namespace graph_slam_ns{
                                 .node_id = nodeCounter
                                 };
                 PoseArray.push_back(pose_2d);
+
+                // Now publish Pose2D
+                GraphSLAM::publishNodeMarker(pose_2d);
 
                 std::cout<< "Node id: " << nodeCounter << " " << pose_2d << std::endl;
 
@@ -87,6 +96,44 @@ namespace graph_slam_ns{
         Eigen::Vector3d euler_ang = quaternion.toRotationMatrix().eulerAngles(2, 1, 0); // Z, Y, X
 
         return euler_ang(0);
+    }
+
+    auto GraphSLAM::create_marker_obj() -> visualization_msgs::msg::Marker {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "odom";        // or "odom", "base_link"
+        // marker.header.stamp = this->now();
+        marker.ns = "graph_slam_ns";
+        marker.type = visualization_msgs::msg::Marker::SPHERE;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+
+        marker.pose.orientation.w = 1.0;       
+
+        // Scale (size of the marker in meters)
+        marker.scale.x = 0.2;
+        marker.scale.y = 0.2;
+        marker.scale.z = 0.2;
+
+        // Color (RGBA, must set alpha > 0)
+        marker.color.r = 1.0f;
+        marker.color.g = 0.0f;
+        marker.color.b = 0.0f;
+        marker.color.a = 1.0f;
+
+        marker.lifetime = rclcpp::Duration(0,0);  // 0 = forever
+        
+        return marker;
+    }
+
+    void GraphSLAM::publishNodeMarker(const graph_slam_ns::Pose2D& node){
+        auto marker_obj = GraphSLAM::create_marker_obj();
+
+        marker_obj.id = node.node_id; 
+
+        marker_obj.pose.position.x = node.x;
+        marker_obj.pose.position.y = node.y;
+        marker_obj.pose.position.z = 0.0;
+
+        m_node_marker_pub->publish(marker_obj);
     }
 
 

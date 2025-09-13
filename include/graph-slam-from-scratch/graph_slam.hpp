@@ -1,3 +1,5 @@
+#pragma once
+
 #include "iostream"
 #include "rclcpp/rclcpp.hpp"
 #include "nav_msgs/msg/odometry.hpp"
@@ -5,22 +7,25 @@
 #include "geometry_msgs/msg/point.hpp"
 #include "vector"
 #include "cmath"
-#include <Eigen/Dense>
+#include "Eigen/Dense"
+#include "visualization_msgs/msg/marker.hpp"
+#include "visualization_msgs/msg/marker_array.hpp"
 
 namespace graph_slam_ns{
+
+    struct Pose2D {
+        public:
+            double x{};
+            double y{};
+            double theta{};
+
+            int node_id{};
+    };
 
     class GraphSLAM : public rclcpp::Node{
 
         public:
-            struct Pose2D {
-                public:
-                    double x{};
-                    double y{};
-                    double theta{};
-
-                    int node_id{};
-
-            };
+            
             GraphSLAM(const rclcpp::NodeOptions & options);
             
             ~GraphSLAM();
@@ -28,9 +33,10 @@ namespace graph_slam_ns{
         private:
             rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odom_sub;
             rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lls_sub;
+            rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_node_marker_pub;
 
             
-            std::vector<Pose2D> PoseArray{};
+            std::vector<graph_slam_ns::Pose2D> PoseArray{};
             geometry_msgs::msg::Point last_point_{};
 
             int nodeCounter{0};
@@ -45,21 +51,13 @@ namespace graph_slam_ns{
 
             double computeDistance(const geometry_msgs::msg::Point& p1, const geometry_msgs::msg::Point& p2);
             double extractTheta(const geometry_msgs::msg::Quaternion& q);
-            // std::ostream& operator << (std::ostream& os, const std::vector<Pose2D>& vec) {
-            //     os << "[";
-            //     for(auto& v : vec) {
-            //         os << "{ ";
-            //         os << v.x << ", " << v.y << ", " << v.theta;
-            //         os << "}, ";
-            //     }
-            //     os << "]";
 
-            //     return os;
-            //  }
+            void publishNodeMarker(const graph_slam_ns::Pose2D& node);
+            visualization_msgs::msg::Marker create_marker_obj();
 
     };
 
-    inline std::ostream& operator << (std::ostream& os, const GraphSLAM::Pose2D& pose) {
+    inline std::ostream& operator << (std::ostream& os, const graph_slam_ns::Pose2D& pose) {
         os << "(";
         os << pose.x << ", " << pose.y << ", " << pose.theta;
         os << ")";
