@@ -10,17 +10,11 @@
 #include "Eigen/Dense"
 #include "visualization_msgs/msg/marker.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
+#include "graph-slam-from-scratch/edge_struct.hpp"
+#include "graph-slam-from-scratch/node_struct.hpp"
+
 
 namespace graph_slam_ns{
-
-    struct Pose2D {
-        public:
-            double x{};
-            double y{};
-            double theta{};
-
-            int node_id{};
-    };
 
     class GraphSLAM : public rclcpp::Node{
 
@@ -34,10 +28,13 @@ namespace graph_slam_ns{
             rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr m_odom_sub;
             rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr m_lls_sub;
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_node_marker_pub;
+            rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_edge_marker_pub;
 
             
-            std::vector<graph_slam_ns::Pose2D> PoseArray{};
+            std::vector<graph_slam_ns::Node2D> NodesArray{};
+            std::vector<graph_slam_ns::Edge2D> EdgesArray{};
             geometry_msgs::msg::Point last_point_{};
+            graph_slam_ns::Node2D previous_node_;
 
             int nodeCounter{0};
             bool is_firstFrame = true;
@@ -52,12 +49,14 @@ namespace graph_slam_ns{
             double computeDistance(const geometry_msgs::msg::Point& p1, const geometry_msgs::msg::Point& p2);
             double extractTheta(const geometry_msgs::msg::Quaternion& q);
 
-            void publishNodeMarker(const graph_slam_ns::Pose2D& node);
+            void publishNodeMarker(const graph_slam_ns::Node2D& node);
             visualization_msgs::msg::Marker create_marker_obj();
+            visualization_msgs::msg::Marker createEdgesMarker_Obj();
+            void publishEdgeMarker(const graph_slam_ns::Node2D& prev, const graph_slam_ns::Node2D& current, std::string& edge_type);
 
     };
 
-    inline std::ostream& operator << (std::ostream& os, const graph_slam_ns::Pose2D& pose) {
+    inline std::ostream& operator << (std::ostream& os, const graph_slam_ns::Node2D& pose) {
         os << "(";
         os << pose.x << ", " << pose.y << ", " << pose.theta;
         os << ")";

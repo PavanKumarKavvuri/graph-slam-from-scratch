@@ -8,7 +8,7 @@
 
 namespace graph_slam_ns{
 
-    struct Pose2D; // Forward declaration
+    struct Node2D; // Forward declaration
 
     class GraphVisualiser {
 
@@ -17,7 +17,7 @@ namespace graph_slam_ns{
             ~GraphVisualiser();
 
             visualization_msgs::msg::Marker create_marker_obj();
-            void publishNodeMarker(const graph_slam_ns::Pose2D& node);
+            void publishNodeMarker(const graph_slam_ns::Node2D& node);
 
             // void initialise_pub_subs();
 

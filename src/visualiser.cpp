@@ -45,7 +45,7 @@ namespace graph_slam_ns{
         return marker;
     }
 
-    void GraphVisualiser::publishNodeMarker(const graph_slam_ns::Pose2D& node){
+    void GraphVisualiser::publishNodeMarker(const graph_slam_ns::Node2D& node){
         auto marker_obj = GraphVisualiser::create_marker_obj();
 
         marker_obj.id = node.node_id; 

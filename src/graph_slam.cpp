@@ -1,4 +1,5 @@
 #include "graph-slam-from-scratch/graph_slam.hpp"
+#include "graph-slam-from-scratch/helpers.hpp"
 
 
 namespace graph_slam_ns{
@@ -24,6 +25,9 @@ namespace graph_slam_ns{
 
         m_node_marker_pub = this->create_publisher<visualization_msgs::msg::Marker>(
             "visualization_marker", qos_settings_);
+        
+        m_edge_marker_pub = this->create_publisher<visualization_msgs::msg::Marker>(
+            "edges_marker", qos_settings_);
 
     }
 
@@ -36,6 +40,7 @@ namespace graph_slam_ns{
         
         geometry_msgs::msg::Point current_point = msg->pose.pose.position;
         geometry_msgs::msg::Quaternion current_quat = msg->pose.pose.orientation;
+        auto current_cov = msg->pose.covariance;
 
         if(is_firstFrame){
             RCLCPP_INFO(this->get_logger(), "First Frame Received");
@@ -44,42 +49,59 @@ namespace graph_slam_ns{
 
             auto theta = extractTheta(current_quat);
 
-            Pose2D pose_2d{ .x = current_point.x,
+            Node2D node_2d{ .x = current_point.x,
                             .y = current_point.y,
                             .theta = theta,
                             .node_id = nodeCounter
                             };
-            PoseArray.push_back(pose_2d);
+            NodesArray.push_back(node_2d);
 
-            // Now publish Pose2D
-            GraphSLAM::publishNodeMarker(pose_2d);
+            previous_node_ = node_2d;
+
+            // Now publish Node2D
+            GraphSLAM::publishNodeMarker(node_2d);
         }
         else{
             auto dist = computeDistance(current_point, last_point_);
             distance_travelled += dist;
             
             if(distance_travelled > 10){
-                RCLCPP_INFO(this->get_logger(), "Distance greater than 15mts. Dropping node now");
+                // RCLCPP_INFO(this->get_logger(), "Distance greater than 15mts. Dropping node now");
                 
                 nodeCounter += 1;
                 auto theta = extractTheta(current_quat);
 
-                Pose2D pose_2d{ .x = current_point.x,
+                Node2D node_2d{ .x = current_point.x,
                                 .y = current_point.y,
                                 .theta = theta,
                                 .node_id = nodeCounter
                                 };
-                PoseArray.push_back(pose_2d);
+                NodesArray.push_back(node_2d);
 
-                // Now publish Pose2D
-                GraphSLAM::publishNodeMarker(pose_2d);
+                // Now publish Node2D
+                GraphSLAM::publishNodeMarker(node_2d);
 
-                std::cout<< "Node id: " << nodeCounter << " " << pose_2d << std::endl;
+                std::cout<< node_2d << std::endl;
+
+                Eigen::Vector3d rel_meas = graph_slam_ns::relativePose2D(previous_node_, node_2d);
+                Eigen::Matrix3d inf_mat = graph_slam_ns::computeInfoMatrix(current_cov);
+                
+                // const auto type = "odom";
+                Edge2D edge(node_2d.node_id, previous_node_.node_id, rel_meas, inf_mat);
+                EdgesArray.push_back(edge);
+
+                // EdgesArray.emplace_back(node_2d.node_id,
+                //                         previous_node_.node_id,
+                //                         rel_meas,
+                //                         inf_mat,
+                //                         "odom");
 
                 last_point_ = current_point;
-                distance_travelled = 0.0;
+                previous_node_ = node_2d;
 
-                std::cout<< "Vector size: "<< PoseArray.size() << std::endl;
+                distance_travelled = 0.0;
+                
+
             }
         }
     }
@@ -101,8 +123,8 @@ namespace graph_slam_ns{
     auto GraphSLAM::create_marker_obj() -> visualization_msgs::msg::Marker {
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = "odom";        // or "odom", "base_link"
-        // marker.header.stamp = this->now();
-        marker.ns = "graph_slam_ns";
+        marker.header.stamp = rclcpp::Clock().now();
+        marker.ns = "nodes";
         marker.type = visualization_msgs::msg::Marker::SPHERE;
         marker.action = visualization_msgs::msg::Marker::ADD;
 
@@ -124,7 +146,28 @@ namespace graph_slam_ns{
         return marker;
     }
 
-    void GraphSLAM::publishNodeMarker(const graph_slam_ns::Pose2D& node){
+    auto createEdgesMarker_Obj() -> visualization_msgs::msg::Marker {
+        visualization_msgs::msg::Marker marker;
+        marker.header.frame_id = "odom";
+        marker.header.stamp = rclcpp::Clock().now();
+        marker.ns = "edges";
+        
+        marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+        marker.action = visualization_msgs::msg::Marker::ADD;
+        marker.scale.x = 0.05; // line width
+
+        // optional: separate colors for odom vs loop
+        std_msgs::msg::ColorRGBA odom_color;
+        odom_color.r = 0.0; odom_color.g = 1.0; odom_color.b = 0.0; odom_color.a = 1.0;
+
+        std_msgs::msg::ColorRGBA loop_color;
+        loop_color.r = 1.0; loop_color.g = 0.0; loop_color.b = 0.0; loop_color.a = 1.0;
+
+        return marker;
+
+    }
+
+    void GraphSLAM::publishNodeMarker(const graph_slam_ns::Node2D& node){
         auto marker_obj = GraphSLAM::create_marker_obj();
 
         marker_obj.id = node.node_id; 
@@ -134,6 +177,29 @@ namespace graph_slam_ns{
         marker_obj.pose.position.z = 0.0;
 
         m_node_marker_pub->publish(marker_obj);
+    }
+
+    void publishEdgeMarker(const graph_slam_ns::Node2D& prev, const graph_slam_ns::Node2D& current, const std::string& edge_type){
+        auto marker_obj = GraphSLAM::createEdgesMarker_Obj();
+
+        marker_obj.id = prev.node_id;
+
+        geometry_msgs::msg::Point prev_position(prev.x, prev.y, 0.0);
+        geometry_msgs::msg::Point current_position(current.x, current.y, 0.0);
+
+        marker_obj.points.push_back(prev_position);
+        marker_obj.points.push_back(current_position);
+
+        std_msgs::msg::ColorRGBA odom_color;
+        if(edge_type == "odom"){
+            odom_color.r = 0.0; odom_color.g = 1.0; odom_color.b = 0.0; odom_color.a = 1.0;
+            marker.colors.push_back(odom_color);
+        } else if (edge_type == "loop"){
+            odom_color.r = 1.0; odom_color.g = 0.0; odom_color.b = 0.0; odom_color.a = 1.0;
+        }
+
+        m_edge_marker_pub->publish(marker_obj);
+
     }
 
 
