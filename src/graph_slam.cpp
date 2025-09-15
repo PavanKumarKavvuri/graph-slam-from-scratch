@@ -9,6 +9,8 @@ namespace graph_slam_ns{
 
         GraphSLAM::initialise_pub_subs();
 
+        GraphSLAM::createEdgesMarker_Obj();
+
     }
 
     void GraphSLAM::initialise_pub_subs(){
@@ -90,12 +92,11 @@ namespace graph_slam_ns{
                 Edge2D edge(node_2d.node_id, previous_node_.node_id, rel_meas, inf_mat);
                 EdgesArray.push_back(edge);
 
-                // EdgesArray.emplace_back(node_2d.node_id,
-                //                         previous_node_.node_id,
-                //                         rel_meas,
-                //                         inf_mat,
-                //                         "odom");
+                const std::string type = "odom";
 
+                // Now publish Edge2D
+                GraphSLAM::publishEdgeMarker(previous_node_, node_2d, type);
+                
                 last_point_ = current_point;
                 previous_node_ = node_2d;
 
@@ -146,24 +147,24 @@ namespace graph_slam_ns{
         return marker;
     }
 
-    auto createEdgesMarker_Obj() -> visualization_msgs::msg::Marker {
-        visualization_msgs::msg::Marker marker;
-        marker.header.frame_id = "odom";
-        marker.header.stamp = rclcpp::Clock().now();
-        marker.ns = "edges";
+    void GraphSLAM::createEdgesMarker_Obj() {
+
+        m_edge_marker.header.frame_id = "odom";
+        m_edge_marker.header.stamp = rclcpp::Clock().now();
+        m_edge_marker.ns = "edges";
         
-        marker.type = visualization_msgs::msg::Marker::LINE_LIST;
-        marker.action = visualization_msgs::msg::Marker::ADD;
-        marker.scale.x = 0.05; // line width
+        m_edge_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+        m_edge_marker.action = visualization_msgs::msg::Marker::ADD;
+        m_edge_marker.scale.x = 0.01; // line width
+        m_edge_marker.scale.y = 0.01; // line width
 
-        // optional: separate colors for odom vs loop
-        std_msgs::msg::ColorRGBA odom_color;
-        odom_color.r = 0.0; odom_color.g = 1.0; odom_color.b = 0.0; odom_color.a = 1.0;
+        m_edge_marker.color.r = 1.0f;
+        m_edge_marker.color.g = 1.0f;
+        m_edge_marker.color.b = 0.0f;
+        m_edge_marker.color.a = 1.0f;
 
-        std_msgs::msg::ColorRGBA loop_color;
-        loop_color.r = 1.0; loop_color.g = 0.0; loop_color.b = 0.0; loop_color.a = 1.0;
-
-        return marker;
+        m_edge_marker.points.clear();
+        // m_edge_marker.colors.clear();
 
     }
 
@@ -179,26 +180,26 @@ namespace graph_slam_ns{
         m_node_marker_pub->publish(marker_obj);
     }
 
-    void publishEdgeMarker(const graph_slam_ns::Node2D& prev, const graph_slam_ns::Node2D& current, const std::string& edge_type){
-        auto marker_obj = GraphSLAM::createEdgesMarker_Obj();
+    void GraphSLAM::publishEdgeMarker(const graph_slam_ns::Node2D& prev, const graph_slam_ns::Node2D& current, const std::string& edge_type){
 
-        marker_obj.id = prev.node_id;
+        this->createEdgesMarker_Obj();
 
-        geometry_msgs::msg::Point prev_position(prev.x, prev.y, 0.0);
-        geometry_msgs::msg::Point current_position(current.x, current.y, 0.0);
+        m_edge_marker.id = prev.node_id;
 
-        marker_obj.points.push_back(prev_position);
-        marker_obj.points.push_back(current_position);
+        geometry_msgs::msg::Point prev_position;
+        prev_position.x = prev.x;
+        prev_position.y = prev.y;
 
-        std_msgs::msg::ColorRGBA odom_color;
-        if(edge_type == "odom"){
-            odom_color.r = 0.0; odom_color.g = 1.0; odom_color.b = 0.0; odom_color.a = 1.0;
-            marker.colors.push_back(odom_color);
-        } else if (edge_type == "loop"){
-            odom_color.r = 1.0; odom_color.g = 0.0; odom_color.b = 0.0; odom_color.a = 1.0;
-        }
+        geometry_msgs::msg::Point current_position;
+        current_position.x = current.x;
+        current_position.y = current.y;
 
-        m_edge_marker_pub->publish(marker_obj);
+        m_edge_marker.points.push_back(prev_position);
+        m_edge_marker.points.push_back(current_position);
+
+        m_edge_marker.lifetime = rclcpp::Duration(0,0);
+
+        m_edge_marker_pub->publish(m_edge_marker);
 
     }
 

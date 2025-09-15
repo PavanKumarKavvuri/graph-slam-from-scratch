@@ -36,6 +36,8 @@ namespace graph_slam_ns{
             geometry_msgs::msg::Point last_point_{};
             graph_slam_ns::Node2D previous_node_;
 
+            visualization_msgs::msg::Marker m_edge_marker;
+
             int nodeCounter{0};
             bool is_firstFrame = true;
             double euc_dist{};
@@ -51,8 +53,8 @@ namespace graph_slam_ns{
 
             void publishNodeMarker(const graph_slam_ns::Node2D& node);
             visualization_msgs::msg::Marker create_marker_obj();
-            visualization_msgs::msg::Marker createEdgesMarker_Obj();
-            void publishEdgeMarker(const graph_slam_ns::Node2D& prev, const graph_slam_ns::Node2D& current, std::string& edge_type);
+            void createEdgesMarker_Obj();
+            void publishEdgeMarker(const graph_slam_ns::Node2D& prev, const graph_slam_ns::Node2D& current, const std::string& edge_type);
 
     };
 
