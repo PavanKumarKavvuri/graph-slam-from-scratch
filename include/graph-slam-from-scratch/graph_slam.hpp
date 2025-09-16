@@ -12,7 +12,7 @@
 #include "visualization_msgs/msg/marker_array.hpp"
 #include "graph-slam-from-scratch/edge_struct.hpp"
 #include "graph-slam-from-scratch/node_struct.hpp"
-
+#include "graph-slam-from-scratch/helpers.hpp"
 
 namespace graph_slam_ns{
 
@@ -30,7 +30,6 @@ namespace graph_slam_ns{
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_node_marker_pub;
             rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr m_edge_marker_pub;
 
-            
             std::vector<graph_slam_ns::Node2D> NodesArray{};
             std::vector<graph_slam_ns::Edge2D> EdgesArray{};
             geometry_msgs::msg::Point last_point_{};
@@ -42,20 +41,18 @@ namespace graph_slam_ns{
             bool is_firstFrame = true;
             double euc_dist{};
             double distance_travelled{};
+            double gt_x{}, gt_y{}, gt_theta{};
 
             void initialise_pub_subs();
 
             void gtPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
             void odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg);
 
-            double computeDistance(const geometry_msgs::msg::Point& p1, const geometry_msgs::msg::Point& p2);
-            double extractTheta(const geometry_msgs::msg::Quaternion& q);
-
             void publishNodeMarker(const graph_slam_ns::Node2D& node);
             visualization_msgs::msg::Marker create_marker_obj();
             void createEdgesMarker_Obj();
             void publishEdgeMarker(const graph_slam_ns::Node2D& prev, const graph_slam_ns::Node2D& current, const std::string& edge_type);
-
+            
     };
 
     inline std::ostream& operator << (std::ostream& os, const graph_slam_ns::Node2D& pose) {

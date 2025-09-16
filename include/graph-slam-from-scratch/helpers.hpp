@@ -2,8 +2,12 @@
 
 #include "Eigen/Dense"
 #include "nav_msgs/msg/odometry.hpp"
+#include "geometry_msgs/msg/point.hpp"
+#include "geometry_msgs/msg/quaternion.hpp"
 #include "cmath"
 #include "graph-slam-from-scratch/node_struct.hpp"
+#include "graph-slam-from-scratch/loop_closure_struct.hpp"
+
 
 
 namespace graph_slam_ns{
@@ -36,6 +40,50 @@ namespace graph_slam_ns{
             return Eigen::Matrix3d::Identity() * 1e-3;
 
         return cov.inverse();
+    }
+
+    inline double computeDistance(const geometry_msgs::msg::Point& p1, const geometry_msgs::msg::Point& p2){
+        return std::sqrt(
+            std::pow(p2.x - p1.x, 2) +
+            std::pow(p2.y - p1.y, 2)
+        );
+    }
+
+    inline double extractTheta(const geometry_msgs::msg::Quaternion& q){
+        Eigen::Quaterniond quaternion(q.w, q.x, q.y, q.z);
+        Eigen::Vector3d euler_ang = quaternion.toRotationMatrix().eulerAngles(2, 1, 0); // Z, Y, X
+
+        return euler_ang(0);
+    }
+
+    inline LoopClosureResult checkLoopClosure(const graph_slam_ns::Node2D& current_node, const std::vector<graph_slam_ns::Node2D> node_vec){
+        double loop_threshold = 0.5;    // meters
+        int min_separation = 20;        // don’t connect to immediate neighbors
+
+        LoopClosureResult loop_closed_result{};
+
+        for (const auto& candidate_node : node_vec){
+
+            if ((current_node.node_id - candidate_node.node_id) < min_separation) {
+                // Skip and Continue to next iteration
+                continue;
+            }
+
+            double dx = current_node.gt_x - candidate_node.gt_x;
+            double dy = current_node.gt_y - candidate_node.gt_y;
+
+            double dist = std::sqrt(dx*dx + dy*dy);
+            if (dist < loop_threshold) {
+                std::cout << "Loop closure Detected at Nodes " << candidate_node.node_id << " and " << current_node.node_id << " with dist : " << dist << std::endl;
+                
+                loop_closed_result.result = true;
+                loop_closed_result.closing_node = candidate_node;
+
+                return loop_closed_result;
+            }
+
+        }
+        return loop_closed_result;
     }
 
 }

@@ -2,6 +2,7 @@
 #include "graph-slam-from-scratch/helpers.hpp"
 
 
+
 namespace graph_slam_ns{
 
     GraphSLAM::GraphSLAM(const rclcpp::NodeOptions & options): rclcpp::Node("graph_slam_node", options){
@@ -34,8 +35,13 @@ namespace graph_slam_ns{
     }
 
     void GraphSLAM::gtPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg){
-        // RCLCPP_INFO_STREAM(this->get_logger(), "Ground Truth Pose Received: [" << msg->pose.position.x << ", " << msg->pose.position.y << "]");
-        // frameCount += 1;
+        geometry_msgs::msg::Point current_gt_point = msg->pose.position;
+        geometry_msgs::msg::Quaternion current_gt_quat = msg->pose.orientation;
+
+        gt_x = current_gt_point.x;
+        gt_y = current_gt_point.y;
+        gt_theta = graph_slam_ns::extractTheta(current_gt_quat);
+
     }
 
     void GraphSLAM::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg){
@@ -49,12 +55,15 @@ namespace graph_slam_ns{
             is_firstFrame = false;
             // nodeCounter += 1;
 
-            auto theta = extractTheta(current_quat);
+            auto theta = graph_slam_ns::extractTheta(current_quat);
 
             Node2D node_2d{ .x = current_point.x,
                             .y = current_point.y,
                             .theta = theta,
-                            .node_id = nodeCounter
+                            .node_id = nodeCounter,
+                            .gt_x = gt_x,
+                            .gt_y = gt_y,
+                            .gt_theta = gt_theta
                             };
             NodesArray.push_back(node_2d);
 
@@ -64,20 +73,26 @@ namespace graph_slam_ns{
             GraphSLAM::publishNodeMarker(node_2d);
         }
         else{
-            auto dist = computeDistance(current_point, last_point_);
+            auto dist = graph_slam_ns::computeDistance(current_point, last_point_);
             distance_travelled += dist;
             
             if(distance_travelled > 10){
                 // RCLCPP_INFO(this->get_logger(), "Distance greater than 15mts. Dropping node now");
                 
                 nodeCounter += 1;
-                auto theta = extractTheta(current_quat);
+                auto theta = graph_slam_ns::extractTheta(current_quat);
 
                 Node2D node_2d{ .x = current_point.x,
                                 .y = current_point.y,
                                 .theta = theta,
-                                .node_id = nodeCounter
+                                .node_id = nodeCounter,
+                                .gt_x = gt_x,
+                                .gt_y = gt_y,
+                                .gt_theta = gt_theta
                                 };
+
+                graph_slam_ns::LoopClosureResult loop_closure_result = graph_slam_ns::checkLoopClosure(node_2d, NodesArray);
+
                 NodesArray.push_back(node_2d);
 
                 // Now publish Node2D
@@ -96,29 +111,18 @@ namespace graph_slam_ns{
 
                 // Now publish Edge2D
                 GraphSLAM::publishEdgeMarker(previous_node_, node_2d, type);
+                if(loop_closure_result.result){
+                    const std::string type = "loop";
+                    GraphSLAM::publishEdgeMarker(loop_closure_result.closing_node, node_2d, type);
+                }
                 
                 last_point_ = current_point;
                 previous_node_ = node_2d;
 
                 distance_travelled = 0.0;
                 
-
             }
         }
-    }
-
-    double GraphSLAM::computeDistance(const geometry_msgs::msg::Point& p1, const geometry_msgs::msg::Point& p2){
-        return std::sqrt(
-            std::pow(p2.x - p1.x, 2) +
-            std::pow(p2.y - p1.y, 2)
-        );
-    }
-
-    double GraphSLAM::extractTheta(const geometry_msgs::msg::Quaternion& q){
-        Eigen::Quaterniond quaternion(q.w, q.x, q.y, q.z);
-        Eigen::Vector3d euler_ang = quaternion.toRotationMatrix().eulerAngles(2, 1, 0); // Z, Y, X
-
-        return euler_ang(0);
     }
 
     auto GraphSLAM::create_marker_obj() -> visualization_msgs::msg::Marker {
@@ -155,8 +159,8 @@ namespace graph_slam_ns{
         
         m_edge_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
         m_edge_marker.action = visualization_msgs::msg::Marker::ADD;
-        m_edge_marker.scale.x = 0.01; // line width
-        m_edge_marker.scale.y = 0.01; // line width
+        m_edge_marker.scale.x = 0.03; // line width
+        m_edge_marker.scale.y = 0.03; // line width
 
         m_edge_marker.color.r = 1.0f;
         m_edge_marker.color.g = 1.0f;
@@ -199,10 +203,16 @@ namespace graph_slam_ns{
 
         m_edge_marker.lifetime = rclcpp::Duration(0,0);
 
+        if (edge_type == "loop"){
+            m_edge_marker.color.r = 1.0f;
+            m_edge_marker.color.g = 0.0f;
+            m_edge_marker.color.b = 0.0f;
+            m_edge_marker.color.a = 1.0f;
+        }
+
         m_edge_marker_pub->publish(m_edge_marker);
 
     }
-
 
     GraphSLAM::~GraphSLAM(){
         RCLCPP_INFO(this->get_logger(), "Custom Graph SLAM Node Destroyed!");

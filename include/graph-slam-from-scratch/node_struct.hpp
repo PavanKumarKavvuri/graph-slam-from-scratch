@@ -10,5 +10,12 @@ namespace graph_slam_ns{
             double theta{};
 
             int node_id{};
+
+            double gt_x{};
+            double gt_y{};
+            double gt_theta{};
+
+            
+            
     };
 }

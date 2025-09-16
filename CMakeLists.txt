@@ -26,12 +26,14 @@ find_package(rosidl_default_generators REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(OpenCV REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 
-include_directories(include ${EIGEN3_INCLUDE_DIR})
+include_directories(include ${EIGEN3_INCLUDE_DIR} ${OpenCV_INCLUDE_DIRS})
 
 add_executable(graph_slam src/main.cpp src/graph_slam.cpp)
+add_executable(visual_odom src/visual_odometry/main.cpp src/visual_odometry/vo_node.cpp)
 # ament_target_dependencies(graph_node rclcpp std_msgs)
 
 target_link_libraries(graph_slam
@@ -41,8 +43,21 @@ target_link_libraries(graph_slam
   PUBLIC ${visualization_msgs_TARGETS}
   PUBLIC ${std_msgs_TARGETS})
 
+target_link_libraries(visual_odom
+  PRIVATE rclcpp::rclcpp
+  PUBLIC ${nav_msgs_TARGETS}
+  PUBLIC ${geometry_msgs_TARGETS}
+  PUBLIC ${visualization_msgs_TARGETS}
+  PUBLIC ${std_msgs_TARGETS}
+  PUBLIC ${OpenCV_LIBS})
+
 install(TARGETS
   graph_slam
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS
+  visual_odom
   DESTINATION lib/${PROJECT_NAME}
 )
 
