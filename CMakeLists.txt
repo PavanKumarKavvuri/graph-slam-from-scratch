@@ -21,12 +21,15 @@ find_package(std_msgs REQUIRED)
 find_package(visualization_msgs)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(message_filters REQUIRED)
 find_package(visualization_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(message_filters REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(cv_bridge REQUIRED)
 find_package(rosbag2_cpp REQUIRED)
 find_package(rosbag2_storage REQUIRED)
 
@@ -43,13 +46,27 @@ target_link_libraries(graph_slam
   PUBLIC ${visualization_msgs_TARGETS}
   PUBLIC ${std_msgs_TARGETS})
 
-target_link_libraries(visual_odom
-  PRIVATE rclcpp::rclcpp
-  PUBLIC ${nav_msgs_TARGETS}
-  PUBLIC ${geometry_msgs_TARGETS}
-  PUBLIC ${visualization_msgs_TARGETS}
-  PUBLIC ${std_msgs_TARGETS}
-  PUBLIC ${OpenCV_LIBS})
+# target_link_libraries(visual_odom
+#   PRIVATE rclcpp::rclcpp
+#   PUBLIC ${nav_msgs_TARGETS}
+#   PUBLIC ${geometry_msgs_TARGETS}
+#   PUBLIC ${visualization_msgs_TARGETS}
+#   PUBLIC ${std_msgs_TARGETS}
+#   PUBLIC ${OpenCV_LIBS}
+#   PUBLIC ${sensor_msgs_TARGETS}
+#   PUBLIC ${message_filters_TARGETS})
+
+ament_target_dependencies(visual_odom
+  rclcpp
+  sensor_msgs
+  nav_msgs
+  geometry_msgs
+  visualization_msgs
+  std_msgs
+  message_filters
+  cv_bridge
+  OpenCV
+)
 
 install(TARGETS
   graph_slam
